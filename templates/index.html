@@ -1,0 +1,77 @@
+$def with (ws_uri)
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>lxd-term</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@4.11.0/css/xterm.css" />
+</head>
+    <body>
+        <div id="terminal" style="width: 0; height: 0; border: 5px solid grey;"></div>
+        <script src="https://cdn.jsdelivr.net/npm/xterm@4.11.0/lib/xterm.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.0.0/dist/socket.io.min.js"></script>
+        <script>
+
+            var term = new Terminal();
+
+            var socket = new WebSocket('$ws_uri');
+            socket.binaryType = "arraybuffer";
+
+            term.open(document.getElementById('terminal'));
+            term.resize(80, 25);
+            document.getElementById('terminal').style.width = document.getElementsByClassName('xterm-screen')[0].style.width;
+            document.getElementById('terminal').style.height = document.getElementsByClassName('xterm-screen')[0].style.height;
+
+            term.setOption('cursorBlink', true);
+
+            socket.onmessage = function(e) {
+                console.log('Data Received: ', e.data);
+                // If the message is zero length it usually signals disconnection.
+                if(e.data.length == 0) {
+                    socket.close();
+                } else {
+                    term.write(ab2str(e.data));
+                };
+            };
+
+            socket.onopen = function(e) {
+                // Connection opened.
+                console.log('Connection Opened: ', e);
+                term.writeln('Connected...');
+            };
+
+            socket.onclose = function(e) {
+                // Connection closed.
+                console.log('Connection Closed: ', e);
+                if (e.wasClean) {
+                    term.writeln('Disconnected.');
+                } else {
+                    term.writeln('Disconnected due to error.');
+                };
+            };
+
+            socket.onerror = function(e) {
+                // An error occurred.
+                console.log('Connection Error: ', e);
+                term.writeln('An error occurred.')
+            };
+
+            term.onKey(function(e) {
+                var data = str2ab(e.key);
+                console.log('Data Sent: ', data);
+                socket.send(data);
+            });
+
+            function ab2str(buf) {
+                var dec = new TextDecoder("utf-8");
+                return dec.decode(buf);
+            };
+
+            function str2ab(str) {
+                var enc = new TextEncoder();
+                return enc.encode(str).buffer;
+            };
+
+        </script>
+    </body>
+</html>
